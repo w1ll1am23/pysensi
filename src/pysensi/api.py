@@ -33,7 +33,7 @@ THERMOSTATS = {}
 
 class SensiApiInterface:
 
-    def __init__(self, username, password):
+    def __init__(self, username, password, devices_callback):
         """Create a Sensi API interface."""
         self.username = username
         self.password = password
@@ -42,6 +42,8 @@ class SensiApiInterface:
         self.access_token = ""
         self.refresh_token = ""
         self.expires_at = datetime.datetime.now()
+        self._websocket = None
+        self.devices_callback = devices_callback
 
     def _login_and_get_token(self):
         _response = requests.post(OAUTH_URL.format(self.device), data={"username": self.username, "password": self.password, "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "grant_type": "password"}, verify=False)
@@ -60,6 +62,7 @@ class SensiApiInterface:
     async def _async_start_ws_connection(self):
         
         async with websockets.connect(START_WS_URL, extra_headers=OAUTH) as websocket:
+            self._websocket = websocket
             asyncio.ensure_future(self._run_keep_alive(websocket))
             while True:
                 ws_response = await websocket.recv()
@@ -67,7 +70,7 @@ class SensiApiInterface:
                 prased_response = parse_ws_response(ws_response)
                 if prased_response:
                     # response type and json body
-                    route_response(self, prased_response[0], prased_response[1])
+                    route_response(self, prased_response[0], prased_response[1], self.devices_callback)
                 else:
                     # Do nothing I guess...
                     pass
@@ -81,7 +84,12 @@ class SensiApiInterface:
         """Get the data from the API."""
         asyncio.get_event_loop().run_until_complete(self._async_start_ws_connection())
 
-def route_response(api_interface, response_type, response_json):
+    async def send_web_request(self, request):
+        """Make a ws request."""
+        print(str(request))
+        await self._websocket.send(request)
+
+def route_response(api_interface, response_type, response_json, devices_callback=None):
     if response_type == "42":
         if "state" in response_json:
             for device in response_json[1]:
@@ -91,6 +99,10 @@ def route_response(api_interface, response_type, response_json):
                     _device.update_state(device)
                 else:
                     DEVICES[_id] = SensiThermostat(api_interface, device)
+                    if devices_callback:
+                        devices_callback(DEVICES)
+    # if response_type == "431" || response_type == "432":
+
 
 def parse_ws_response(response):
         list_of_non_digits = re.findall(r'\D', response[:10])

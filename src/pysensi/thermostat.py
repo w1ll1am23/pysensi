@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 class SensiThermostat:
 
@@ -81,7 +82,10 @@ class SensiThermostat:
         except AttributeError:
             pass
         return self._unit_type
-    
+
+    def set_temperature(self, temperature):
+        _json = ["set_temperature", {"icd_id": self.id, "target_temp":temperature, "mode":self.mode, "scale": self.unit_type}]
+        asyncio.ensure_future(self.api.send_web_request(f"421{json.dumps(_json)}"))
 
     def update_state(self, state_json):
         self.state = state_json

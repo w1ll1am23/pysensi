@@ -1,0 +1,16 @@
+set temperature
+
+	REQUEST:
+	421
+	422["set_temperature", {"icd_id": "ID", "target_temp":78, "mode":"cool", "scale":"f"}]
+	RESPONSE:
+	431[null,{"current_temp":73,"mode":"cool","target_temp":78}]
+
+set operation mode
+
+	REQUEST
+	424
+	425["set_operation_mode", {"icd_id": "ID", "value": "AUTO"}]
+	RESPONSE
+	434
+	435[null,"accepted"]
